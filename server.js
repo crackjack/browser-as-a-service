@@ -26,8 +26,8 @@ router.post('/', function(req, res) {
 	// get the post variables
 	var _url = req.body.url;
 	var _useragent = req.body.useragent;
-	var _wd = req.body.scr_width;
-	var _ht = req.body.scr_height;
+	var _wd = req.body.width;
+	var _ht = req.body.height;
 
 	var sitepage = null;
 	var phInstance = null;
@@ -43,20 +43,20 @@ router.post('/', function(req, res) {
     .then(page => {
         sitepage = page;
 
-		outObj.reqs = [];
-		outObj.reps = [];
-		outObj.html = [];
+        outObj.req = [];
+        outObj.res = [];
+		outObj.html = '';
 		outObj.jpeg = '';
 
-		page.on('onResourceRequested', function(requestData, networkRequest, out) {
-			//console.log(requestData.url);
-		    out.reqs.push(requestData);
-		}, outObj);
+		page.on('onResourceRequested', function(requestData, networkRequest) {
+            outObj.req.push(requestData);
+        });
 
-		page.on('onResourceReceived', function(responseData, out) {
-		    //console.log(responseData.url);
-		    out.reps.push(responseData);
-		}, outObj);
+		page.on('onResourceReceived', function(responseData) {
+            if(responseData.stage == 'end'){
+                outObj.res.push(responseData);
+            }
+		});
 
 		page.setting('userAgent', _useragent);
         page.property('viewportSize', {width: _wd, height: _ht});
@@ -65,24 +65,44 @@ router.post('/', function(req, res) {
     })
     .then(status => {
     	status_text = status;
-        console.log("Page Status: " + status);
+        //console.log("Page Status: " + status);
+        sitepage.renderBase64('JPEG').then(screenshot => { outObj.jpeg = screenshot; });
         return sitepage.property('content');
     })
     .then(content => {
-        html_buffer = new Buffer(content);
 	   	sitepage.close();
+        reqres = [];
+
+        function sortByKey(array, key) {
+            return array.sort(function(a, b) {
+                var x = a[key]; var y = b[key];
+                return ((x < y) ? -1 : ((x > y) ? 1 : 0));
+            });
+        }
+
+        sorted_req = sortByKey(outObj.req, 'id');
+        sorted_res = sortByKey(outObj.res, 'id');
+
+        for (var i = 0; i <= outObj.req.length-1; i++) {
+            reqres.push({req: sorted_req[i], res: sorted_res[i]});
+        };
+
         res.json({
         	status: status_text,
-        	request: outObj.reqs,
-        	response: outObj.reps,
-        	// html: content,
-        	html: html_buffer.toString('base64'),
-        	jpg: sitepage.renderBase64('PNG')
+        	reqres: reqres,
+        	html: content,
+        	jpg: outObj.jpeg
         });
         phInstance.exit();
     })
     .catch(error => {
         console.log(error);
+        res.json({
+            status: '911',
+            reqrep: '',
+            html: '',
+            jpg: ''
+        });
         phInstance.exit();
     });
   

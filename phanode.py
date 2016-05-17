@@ -28,8 +28,18 @@ response = json.loads(req.content)
 
 print "Status: %s" % response["status"]
 
-print "Request Objects: %s" % response["request"]
+# print "Request Objects: %s" % response["request"]
+# with open('output/request.txt', 'w') as reqfile:
+#     json.dump(response["request"], reqfile)
 
-print "Response Objects: %s" % response["response"]
+# print "Response Objects: %s" % response["response"]
+# with open('output/response.txt', 'w') as resfile:
+#     json.dump(response["response"], resfile)
 
-print "HTML Content: %s" % response["html"]
+# print "JPG Image: %s" % response["jpg"]
+# with open('output/screnshot.jpg', 'wb') as jpegfile:
+# 	jpegfile.write(response["jpg"].decode("base64"))
+
+# print "HTML Content: %s" % response["html"]
+# with open('output/index.html', 'w') as htmlfile:
+# 	htmlfile.write(response["html"].encode("utf-8"))
