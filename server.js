@@ -63,16 +63,17 @@ router.post('/', function(req, res) {
             }
 		});
 
+		
+        // console.log("UserAgent has been set to " + _useragent);
+        page.setting('userAgent', _useragent);
+        
+        // console.log("Screenshot size has been set to " + _wd + "x" + _ht);
+        page.property('viewportSize', {width: _wd, height: _ht});
+
         // check for page load callback and then take screenshot
         page.on('onLoadFinished', function(status){
             page.renderBase64('JPEG').then(screenshot => { outObj.jpeg = screenshot; });
         });
-
-
-		page.setting('userAgent', _useragent);
-        // console.log("UserAgent has been set to " + _useragent);
-        page.property('viewportSize', {width: _wd, height: _ht});
-        // console.log("Screenshot size has been set to " + _wd + "x" + _ht);
 
         return page.open(_url);
     })
