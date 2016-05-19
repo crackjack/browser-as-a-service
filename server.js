@@ -38,6 +38,7 @@ router.post('/', function(req, res) {
 	phantom.create(['--ignore-ssl-errors=yes',])
     .then(instance => {
         phInstance = instance;
+        // console.log("Phantom Initiated");
         return instance.createPage();
     })
     .then(page => {
@@ -48,25 +49,36 @@ router.post('/', function(req, res) {
 		outObj.html = '';
 		outObj.jpeg = '';
 
-		page.on('onResourceRequested', function(requestData, networkRequest) {
+		// gather all request objects
+        page.on('onResourceRequested', function(requestData, networkRequest) {
+            // console.log("Resources Being Requested.");
             outObj.req.push(requestData);
         });
 
-		page.on('onResourceReceived', function(responseData) {
+		// gather all response objects
+        page.on('onResourceReceived', function(responseData) {
+            // console.log("Resources Being Received.");
             if(responseData.stage == 'end'){
                 outObj.res.push(responseData);
             }
 		});
 
+        // check for page load callback and then take screenshot
+        page.on('onLoadFinished', function(status){
+            page.renderBase64('JPEG').then(screenshot => { outObj.jpeg = screenshot; });
+        });
+
+
 		page.setting('userAgent', _useragent);
+        // console.log("UserAgent has been set to " + _useragent);
         page.property('viewportSize', {width: _wd, height: _ht});
+        // console.log("Screenshot size has been set to " + _wd + "x" + _ht);
 
         return page.open(_url);
     })
     .then(status => {
     	status_text = status;
-        //console.log("Page Status: " + status);
-        sitepage.renderBase64('JPEG').then(screenshot => { outObj.jpeg = screenshot; });
+        // console.log("Page Status: " + status);
         return sitepage.property('content');
     })
     .then(content => {
@@ -93,9 +105,11 @@ router.post('/', function(req, res) {
         	html: content,
         	jpg: outObj.jpeg
         });
+        // console.log("Done Processing.");
         phInstance.exit();
     })
     .catch(error => {
+        // console.log("Error During Processing.");
         console.log(error);
         res.json({
             status: '911',
