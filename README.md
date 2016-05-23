@@ -5,5 +5,8 @@ use of phantomjs and phantomjs-node api to emulate browser as a service, for web
 
 - install nodejs and npm
 - run `npm install`
+- create virtualenv `virtualenv env`
+- activate the virtualenv `source env/bin/activate`
+- install request library `pip install requests` 
 - start the webserver by `node server.js`
 - open another console and run `python phanode.py`

@@ -2,8 +2,9 @@ import requests
 import json
 
 _api_base_url = 'http://localhost:9999' # base api
-_url = 'http://niteshrijal.com.np/'
+_url = 'https://angular.io/'
 _useragent = 'SmarshBot/1.1'
+_delay = 10000 # time in ms
 _viewport = '1024x768'
 
 
@@ -19,7 +20,8 @@ payload =   {
                 'url': _url,
                 'useragent': _useragent,
                 'width': width,
-                'height': height
+                'height': height,
+                'delay': _delay
             }
 
 req = requests.post(_api_base_url, data=json.dumps(payload), headers=headers)

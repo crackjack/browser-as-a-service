@@ -26,6 +26,7 @@ router.post('/', function(req, res) {
 	// get the post variables
 	var _url = req.body.url;
 	var _useragent = req.body.useragent;
+    var _delay = req.body.delay;
 	var _wd = req.body.width;
 	var _ht = req.body.height;
 
@@ -49,6 +50,12 @@ router.post('/', function(req, res) {
 		outObj.html = '';
 		outObj.jpeg = '';
 
+        // console.log("UserAgent has been set to " + _useragent);
+        page.setting('userAgent', _useragent);
+        
+        // console.log("Screenshot size has been set to " + _wd + "x" + _ht);
+        page.property('viewportSize', {width: _wd, height: _ht});
+
 		// gather all request objects
         page.on('onResourceRequested', function(requestData, networkRequest) {
             // console.log("Resources Being Requested.");
@@ -63,18 +70,6 @@ router.post('/', function(req, res) {
             }
 		});
 
-		
-        // console.log("UserAgent has been set to " + _useragent);
-        page.setting('userAgent', _useragent);
-        
-        // console.log("Screenshot size has been set to " + _wd + "x" + _ht);
-        page.property('viewportSize', {width: _wd, height: _ht});
-
-        // check for page load callback and then take screenshot
-        page.on('onLoadFinished', function(status){
-            page.renderBase64('JPEG').then(screenshot => { outObj.jpeg = screenshot; });
-        });
-
         return page.open(_url);
     })
     .then(status => {
@@ -83,31 +78,48 @@ router.post('/', function(req, res) {
         return sitepage.property('content');
     })
     .then(content => {
-	   	sitepage.close();
-        reqres = [];
+            got_scr = false;
 
-        function sortByKey(array, key) {
-            return array.sort(function(a, b) {
-                var x = a[key]; var y = b[key];
-                return ((x < y) ? -1 : ((x > y) ? 1 : 0));
-            });
-        }
+            // set timeout for screenshot delay
+            setTimeout(function(){
+                sitepage.renderBase64('JPEG')
+                .then(screenshot => { 
+                    outObj.jpeg = screenshot; 
+                    got_scr = true; 
+                    sitepage.close(); 
+                });
+            }, _delay);
 
-        sorted_req = sortByKey(outObj.req, 'id');
-        sorted_res = sortByKey(outObj.res, 'id');
+            reqres = [];
 
-        for (var i = 0; i <= outObj.req.length-1; i++) {
-            reqres.push({req: sorted_req[i], res: sorted_res[i]});
-        };
+            // sort all request response objects to make a pair
+            function sortByKey(array, key) {
+                return array.sort(function(a, b) {
+                    var x = a[key]; var y = b[key];
+                    return ((x < y) ? -1 : ((x > y) ? 1 : 0));
+                });
+            }
 
-        res.json({
-        	status: status_text,
-        	reqres: reqres,
-        	html: content,
-        	jpg: outObj.jpeg
-        });
-        // console.log("Done Processing.");
-        phInstance.exit();
+            sorted_req = sortByKey(outObj.req, 'id');
+            sorted_res = sortByKey(outObj.res, 'id');
+
+            for (var i = 0; i <= outObj.req.length-1; i++)
+                reqres.push({req: sorted_req[i], res: sorted_res[i]});
+
+            // keep checking if screenshot is received before sending back the JSON
+            interval = setInterval(function(){
+                if(got_scr){
+                    res.json({
+                        status: status_text,
+                        reqres: reqres,
+                        html: content,
+                        jpg: outObj.jpeg
+                    });
+                    clearInterval(interval);
+                    // console.log("Done Processing.");
+                    phInstance.exit();
+                }
+            }, 1000);
     })
     .catch(error => {
         // console.log("Error During Processing.");
@@ -133,3 +145,5 @@ app.use('/', router);
 // =============================================================================
 app.listen(port);
 console.log('API Server started on port ' + port);
+start = new Date().getSeconds();
+console.log('start: ' + start);
