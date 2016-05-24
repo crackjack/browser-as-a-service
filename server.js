@@ -9,6 +9,7 @@ var app        	= express();                 // define our app using express
 var bodyParser 	= require('body-parser');
 var phantom 	= require('phantom'); 			// get phantom context here
 
+
 // configure app to use bodyParser()
 // this will let us get the data from a POST
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -36,7 +37,7 @@ router.post('/', function(req, res) {
 	var outObj = [];
 	var status_text = ''
 
-	phantom.create(['--ignore-ssl-errors=yes',])
+	phantom.create(['--ignore-ssl-errors=yes', '--ssl-protocol=any'])
     .then(instance => {
         phInstance = instance;
         // console.log("Phantom Initiated");
@@ -78,48 +79,67 @@ router.post('/', function(req, res) {
         return sitepage.property('content');
     })
     .then(content => {
-            got_scr = false;
+            // waitfor
+            "use strict";
+            function waitFor(testFx, onReady, timeOutMillis) {
+                var maxtimeOutMillis = timeOutMillis ? timeOutMillis : 3000, //< Default Max Timout is 3s
+                    start = new Date().getTime(),
+                    condition = (typeof(testFx) === "string" ? eval(testFx) : testFx()), //< defensive code
+                    interval = setInterval(function() {
+                        if ( (new Date().getTime() - start < maxtimeOutMillis) && !condition ) {
+                            // If not time-out yet and condition not yet fulfilled
+                            condition = (typeof(testFx) === "string" ? eval(testFx) : testFx()); //< defensive code
+                        } else {
+                            if(!condition) {
+                                // If condition still not fulfilled (timeout but condition is 'false')
+                                console.log("'waitFor()' timeout");
+                                phInstance.exit();
+                            } else {
+                                // Condition fulfilled (timeout and/or condition is 'true')
+                                typeof(onReady) === "string" ? eval(onReady) : onReady(); //< Do what it's supposed to do once the condition is fulfilled
+                                clearInterval(interval); //< Stop this interval
+                            }
+                        }
+                    }, 2500); //< repeat check every 2.5s
+            };
 
             // set timeout for screenshot delay
-            setTimeout(function(){
+            waitFor(function() {
+                // Check in the page if document is loaded
+                return sitepage.evaluate(function(){ 
+                    return (document.readyState === 'complete'); 
+                });         
+            }, function() {
                 sitepage.renderBase64('JPEG')
                 .then(screenshot => { 
                     outObj.jpeg = screenshot; 
-                    got_scr = true; 
                     sitepage.close(); 
-                });
-            }, _delay);
+                    phInstance.exit();
 
-            reqres = [];
+                    reqres = [];
 
-            // sort all request response objects to make a pair
-            function sortByKey(array, key) {
-                return array.sort(function(a, b) {
-                    var x = a[key]; var y = b[key];
-                    return ((x < y) ? -1 : ((x > y) ? 1 : 0));
-                });
-            }
+                    // sort all request response objects to make a pair
+                    function sortByKey(array, key) {
+                        return array.sort(function(a, b) {
+                            var x = a[key]; var y = b[key];
+                            return ((x < y) ? -1 : ((x > y) ? 1 : 0));
+                        });
+                    }
 
-            sorted_req = sortByKey(outObj.req, 'id');
-            sorted_res = sortByKey(outObj.res, 'id');
+                    sorted_req = sortByKey(outObj.req, 'id');
+                    sorted_res = sortByKey(outObj.res, 'id');
 
-            for (var i = 0; i <= outObj.req.length-1; i++)
-                reqres.push({req: sorted_req[i], res: sorted_res[i]});
+                    for (var i = 0; i <= outObj.req.length-1; i++)
+                        reqres.push({req: sorted_req[i], res: sorted_res[i]});
 
-            // keep checking if screenshot is received before sending back the JSON
-            interval = setInterval(function(){
-                if(got_scr){
                     res.json({
                         status: status_text,
                         reqres: reqres,
                         html: content,
                         jpg: outObj.jpeg
                     });
-                    clearInterval(interval);
-                    // console.log("Done Processing.");
-                    phInstance.exit();
-                }
-            }, 1000);
+                });
+            }, _delay);
     })
     .catch(error => {
         // console.log("Error During Processing.");
@@ -145,5 +165,3 @@ app.use('/', router);
 // =============================================================================
 app.listen(port);
 console.log('API Server started on port ' + port);
-start = new Date().getSeconds();
-console.log('start: ' + start);
