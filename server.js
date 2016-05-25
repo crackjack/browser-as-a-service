@@ -31,7 +31,9 @@ router.post('/', function(req, res) {
 	var _wd = req.body.width;
 	var _ht = req.body.height;
 
-	var sitepage = null;
+    var _cookies = req.body.cookies
+
+    var sitepage = null;
 	var phInstance = null;
 
 	var outObj = [];
@@ -79,8 +81,7 @@ router.post('/', function(req, res) {
         return sitepage.property('content');
     })
     .then(content => {
-            // waitfor
-            "use strict";
+            // waitfor utility method
             function waitFor(testFx, onReady, timeOutMillis) {
                 var maxtimeOutMillis = timeOutMillis ? timeOutMillis : 3000, //< Default Max Timout is 3s
                     start = new Date().getTime(),
@@ -105,18 +106,19 @@ router.post('/', function(req, res) {
 
             // set timeout for screenshot delay
             waitFor(function() {
-                // Check in the page if document is loaded
+                // scroll the page to bottom
                 return sitepage.evaluate(function(){ 
-                    return (document.readyState === 'complete'); 
+                    setTimeout(function(){return window.scrollTo(0, document.body.scrollHeight);}, _delay); 
                 });         
-            }, function() {
+            }, function() {                
+                // render the page screenshot as base64 encoded JPEG
                 sitepage.renderBase64('JPEG')
                 .then(screenshot => { 
                     outObj.jpeg = screenshot; 
                     sitepage.close(); 
                     phInstance.exit();
 
-                    reqres = [];
+                    var reqres = [];
 
                     // sort all request response objects to make a pair
                     function sortByKey(array, key) {
@@ -126,8 +128,8 @@ router.post('/', function(req, res) {
                         });
                     }
 
-                    sorted_req = sortByKey(outObj.req, 'id');
-                    sorted_res = sortByKey(outObj.res, 'id');
+                    var sorted_req = sortByKey(outObj.req, 'id');
+                    var sorted_res = sortByKey(outObj.res, 'id');
 
                     for (var i = 0; i <= outObj.req.length-1; i++)
                         reqres.push({req: sorted_req[i], res: sorted_res[i]});
