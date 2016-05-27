@@ -4,10 +4,10 @@
 // =============================================================================
 
 // call the packages we need
-var express     = require('express');        // call express
-var app         = express();                 // define our app using express
-var bodyParser  = require('body-parser');
-var phantom     = require('phantom');           // get phantom context here
+var express    	= require('express');        // call express
+var app        	= express();                 // define our app using express
+var bodyParser 	= require('body-parser');
+var phantom 	= require('phantom'); 			// get phantom context here
 
 
 // configure app to use bodyParser()
@@ -24,53 +24,61 @@ var router = express.Router();              // get an instance of the express Ro
 // test route to make sure everything is working (accessed at GET http://localhost:9999/)
 router.post('/', function(req, res) {
 
-    // get the post variables
-    var _url = req.body.url;
-    var _useragent = req.body.useragent;
+	// get the post variables
+	var _url = req.body.url;
+	var _useragent = req.body.useragent;
     var _delay = req.body.delay;
-    var _wd = req.body.width;
-    var _ht = req.body.height;
+	var _wd = req.body.width;
+	var _ht = req.body.height;
 
-    // var _cookies = JSON.parse(req.body.cookies);
-    var _cookies = req.body.cookies;
+    var _cookies = JSON.parse(req.body.cookies);
+    // var _cookies = req.body.cookies;
 
     // console.log(_cookies);
     // console.log(typeof(_cookies));
 
     var sitepage = null;
-    var phInstance = null;
+	var phInstance = null;
 
-    var outObj = [];
-    var status_text = ''
+	var outObj = [];
+	var status_text = ''
 
-    phantom.create(['--ignore-ssl-errors=yes', '--ssl-protocol=any'])
+	phantom.create(['--ignore-ssl-errors=yes', '--ssl-protocol=any'])
     .then(instance => {
         phInstance = instance;
         // console.log("Phantom Initiated");
         return instance.createPage();
-    })
+    })   
     .then(page => {
         sitepage = page;
-
+    })
+    .then(function(){
+        if(_cookies){
+            return Promise.all(_cookies.map(function (cookie) {
+                    return sitepage.addCookie(cookie);                    
+            }));
+        }
+    })
+    .then(function(){
         outObj.req = [];
         outObj.res = [];
         outObj.html = '';
         outObj.jpeg = '';
 
         // console.log("UserAgent has been set to " + _useragent);
-        page.setting('userAgent', _useragent);
-        
+        sitepage.setting('userAgent', _useragent);
+
         // console.log("Screenshot size has been set to " + _wd + "x" + _ht);
-        page.property('viewportSize', {width: _wd, height: _ht});
+        sitepage.property('viewportSize', {width: _wd, height: _ht});
 
         // gather all request objects
-        page.on('onResourceRequested', function(requestData, networkRequest) {
+        sitepage.on('onResourceRequested', function(requestData, networkRequest) {
             // console.log("Resources Being Requested.");
             outObj.req.push(requestData);
         });
 
         // gather all response objects
-        page.on('onResourceReceived', function(responseData) {
+        sitepage.on('onResourceReceived', function(responseData) {
             // console.log("Resources Being Received.");
             if(responseData.stage == 'end'){
                 outObj.res.push(responseData);
@@ -78,18 +86,10 @@ router.post('/', function(req, res) {
         });
     })
     .then(function(){
-        if(_cookies){
-            return Promise.all(_cookies.map(function (cookie) {
-                    console.log(cookie);
-                    return sitepage.addCookie(cookie);
-            }));
-        }
-    })
-    .then(function(){
         return sitepage.open(_url);
     })
     .then(status => {
-        status_text = status;
+    	status_text = status;
         // console.log("Page Status: " + status);
         return sitepage.property('content');
     })
@@ -121,7 +121,7 @@ router.post('/', function(req, res) {
             waitFor(function() {
                 // scroll the page to bottom
                 return sitepage.evaluate(function(){ 
-                    setTimeout(function(){return window.scrollTo(0, document.body.scrollHeight);}, _delay); 
+                    return window.scrollTo(0, document.body.scrollHeight);
                 });         
             }, function() {                
                 // render the page screenshot as base64 encoded JPEG
