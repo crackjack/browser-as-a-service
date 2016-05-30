@@ -32,11 +32,6 @@ router.post('/', function(req, res) {
 	var _ht = req.body.height;
 
     var _cookies = JSON.parse(req.body.cookies);
-    // var _cookies = req.body.cookies;
-
-    // console.log(_cookies);
-    // console.log(typeof(_cookies));
-
     var sitepage = null;
 	var phInstance = null;
 
@@ -51,15 +46,11 @@ router.post('/', function(req, res) {
     })   
     .then(page => {
         sitepage = page;
-    })
-    .then(function(){
         if(_cookies){
-            return Promise.all(_cookies.map(function (cookie) {
-                    return sitepage.addCookie(cookie);                    
-            }));
+            _cookies.forEach(cookie => { sitepage.addCookie(cookie); });
         }
     })
-    .then(function(){
+    .then(function(){        
         outObj.req = [];
         outObj.res = [];
         outObj.html = '';
@@ -86,6 +77,7 @@ router.post('/', function(req, res) {
         });
     })
     .then(function(){
+        // sitepage.property('cookies').then(coo => {console.log(coo);});
         return sitepage.open(_url);
     })
     .then(status => {
@@ -180,3 +172,4 @@ app.use('/', router);
 // =============================================================================
 app.listen(port);
 console.log('API Server started on port ' + port);
+
