@@ -31,7 +31,10 @@ router.post('/', function(req, res) {
 	var _wd = req.body.width;
 	var _ht = req.body.height;
 
-    var _cookies = JSON.parse(req.body.cookies);
+    if(req.body.cookies){
+        var _cookies = JSON.parse(req.body.cookies);
+    }
+
     var sitepage = null;
 	var phInstance = null;
 
