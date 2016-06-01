@@ -2,34 +2,17 @@ import requests
 import json
 
 _api_base_url = 'http://localhost:9999' # base api
-_url = 'http://example.com/'
-_useragent = 'MyCustomUA/1.1'
+_url = 'http://angular.io/'
+_useragent = 'PhatomBOT/1.1'
 _delay = 10000 # time in ms
-_viewport = '1024x768'
+_viewport = '1920x900'
 
 
 dims =_viewport.split('x')
-height = dims[0]
-width = dims[1]
+width = dims[0]
+height = dims[1]
 
-cookieJar = [
-				{	"domain": ".example.com", 
-					"is_http_only": False, 
-					"name": "cookie1", 
-					"expires": 1779767960, 
-					"value": "value1", 
-					"is_secure": False, 
-					"path": "/"
-				},
-				{	"domain": ".example.com", 
-					"is_http_only": False, 
-					"name": "cookie2", 
-					"expires": 1779767960, 
-					"value": "value2", 
-					"is_secure": False, 
-					"path": "/"
-				}
-			]
+cookieJar = [{"name": "cookie-1", "value": "value-1", "domain": ".angular.io", "path": "/", "httponly": False, "secure": False}]
 
 headers =   {
                 'Content-Type': 'application/json',
@@ -41,7 +24,7 @@ payload =   {
                 'width': width,
                 'height': height,
                 'delay': _delay,
-                'cookie': cookieJar
+                'cookies': cookieJar
             }
 
 req = requests.post(_api_base_url, data=json.dumps(payload), headers=headers)

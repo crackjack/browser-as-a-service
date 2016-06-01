@@ -31,14 +31,19 @@ router.post('/', function(req, res) {
 	var _wd = req.body.width;
 	var _ht = req.body.height;
 
+    // if(req.body.cookies){
+    //     var _cookies = JSON.parse(req.body.cookies);
+    // }
+
     if(req.body.cookies){
-        var _cookies = JSON.parse(req.body.cookies);
+        var _cookies = req.body.cookies;
     }
 
     var sitepage = null;
 	var phInstance = null;
 
 	var outObj = [];
+    var reqres = [];
 	var status_text = ''
 
 	phantom.create(['--ignore-ssl-errors=yes', '--ssl-protocol=any'])
@@ -78,6 +83,31 @@ router.post('/', function(req, res) {
                 outObj.res.push(responseData);
             }
         });
+
+        // take screenshot at onLoadFinished
+        sitepage.on('onLoadFinished', function(){
+
+            // handle cases when the background of the page is transparent or rgba(0,0,0,0)
+            sitepage.evaluate(function() {
+                if ('transparent' === document.defaultView.getComputedStyle(document.body).getPropertyValue('background-color')) {
+                    document.body.style.backgroundColor = '#fff';
+                }
+                if ('rgba(0, 0, 0, 0)' === document.defaultView.getComputedStyle(document.body).getPropertyValue('background-color')) {
+                    document.body.style.backgroundColor = '#fff';
+                }
+            });
+
+            // scroll to the full height of the site
+            sitepage.evaluate(function(){
+                window.scrollTo(0, document.body.scrollHeight);
+            });          
+
+            // render the site screenshot in base64 encoded and save it for later
+            sitepage.renderBase64('JPEG')
+            .then(screenshot => { 
+                outObj.jpeg = screenshot;
+            })
+        });
     })
     .then(function(){
         // sitepage.property('cookies').then(coo => {console.log(coo);});
@@ -86,70 +116,34 @@ router.post('/', function(req, res) {
     .then(status => {
     	status_text = status;
         // console.log("Page Status: " + status);
+
         return sitepage.property('content');
     })
     .then(content => {
-            // waitfor utility method
-            function waitFor(testFx, onReady, timeOutMillis) {
-                var maxtimeOutMillis = timeOutMillis ? timeOutMillis : 3000, //< Default Max Timout is 3s
-                    start = new Date().getTime(),
-                    condition = (typeof(testFx) === "string" ? eval(testFx) : testFx()), //< defensive code
-                    interval = setInterval(function() {
-                        if ( (new Date().getTime() - start < maxtimeOutMillis) && !condition ) {
-                            // If not time-out yet and condition not yet fulfilled
-                            condition = (typeof(testFx) === "string" ? eval(testFx) : testFx()); //< defensive code
-                        } else {
-                            if(!condition) {
-                                // If condition still not fulfilled (timeout but condition is 'false')
-                                console.log("'waitFor()' timeout");
-                                phInstance.exit();
-                            } else {
-                                // Condition fulfilled (timeout and/or condition is 'true')
-                                typeof(onReady) === "string" ? eval(onReady) : onReady(); //< Do what it's supposed to do once the condition is fulfilled
-                                clearInterval(interval); //< Stop this interval
-                            }
-                        }
-                    }, 2500); //< repeat check every 2.5s
-            };
 
-            // set timeout for screenshot delay
-            waitFor(function() {
-                // scroll the page to bottom
-                return sitepage.evaluate(function(){ 
-                    return window.scrollTo(0, document.body.scrollHeight);
-                });         
-            }, function() {                
-                // render the page screenshot as base64 encoded JPEG
-                sitepage.renderBase64('JPEG')
-                .then(screenshot => { 
-                    outObj.jpeg = screenshot; 
-                    sitepage.close(); 
-                    phInstance.exit();
+        sitepage.close();
+        // sort all request response objects to make a pair
+        function sortByKey(array, key) {
+            return array.sort(function(a, b) {
+                var x = a[key]; var y = b[key];
+                return ((x < y) ? -1 : ((x > y) ? 1 : 0));
+            });
+        }
 
-                    var reqres = [];
+        var sorted_req = sortByKey(outObj.req, 'id');
+        var sorted_res = sortByKey(outObj.res, 'id');
 
-                    // sort all request response objects to make a pair
-                    function sortByKey(array, key) {
-                        return array.sort(function(a, b) {
-                            var x = a[key]; var y = b[key];
-                            return ((x < y) ? -1 : ((x > y) ? 1 : 0));
-                        });
-                    }
+        for (var i = 0; i <= outObj.req.length-1; i++)
+            reqres.push({req: sorted_req[i], res: sorted_res[i]});
 
-                    var sorted_req = sortByKey(outObj.req, 'id');
-                    var sorted_res = sortByKey(outObj.res, 'id');
-
-                    for (var i = 0; i <= outObj.req.length-1; i++)
-                        reqres.push({req: sorted_req[i], res: sorted_res[i]});
-
-                    res.json({
-                        status: status_text,
-                        reqres: reqres,
-                        html: content,
-                        jpg: outObj.jpeg
-                    });
-                });
-            }, _delay);
+        res.json({
+            status: status_text,
+            reqres: reqres,
+            html: content,
+            jpg: outObj.jpeg
+        });                    
+    
+        phInstance.exit();
     })
     .catch(error => {
         // console.log("Error During Processing.");
